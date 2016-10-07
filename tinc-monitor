@@ -1,0 +1,35 @@
+#!/bin/ash
+while true; do
+  curl --insecure --cacert /certs/ca.pem \
+   --cert /certs/server.pem \
+   --key /certs/server.key \
+   "https://172.17.0.1:2379/v2/keys/tinc-vpn.org/peers/?wait=true&recursive=true" 2> /dev/null 1> /dev/null
+
+   # Don't fetch peer configs if curl returned an error
+   if [ $? -ne 0 ]; then
+     sleep 1m
+     continue
+   fi
+   echo "[NOTICE] Updating peer config files"
+   HOSTNAME=$(hostname | tr - _)
+
+cat << EOF > /etc/tinc/tinc.conf
+Name = $HOSTNAME
+AddressFamily = ipv4
+Interface = tun0
+EOF
+
+   # Write peer configs
+  CONFIGDATA=$(curl --insecure --cacert /certs/ca.pem \
+   --cert /certs/server.pem \
+   --key /certs/server.key \
+   https://172.17.0.1:2379/v2/keys/tinc-vpn.org/peers/?recursive=true 2> /dev/null)
+  PEERS=$(echo $CONFIGDATA | jq '.node.nodes[].key' | tr -d '"')
+  for peer in $PEERS;
+  do
+    CONFIG=$(echo $CONFIGDATA | jq '.node.nodes[] | select(.key == "'$peer'") | .nodes[] | select(.key == "'$peer'/config") | .value' | tr -d '"')
+    echo -e $CONFIG > /etc/tinc/hosts/${peer:20:64}
+        echo ConnectTo = ${peer:20:64} >> /etc/tinc/tinc.conf
+  done
+done
+

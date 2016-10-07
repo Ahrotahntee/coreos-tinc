@@ -1,0 +1,115 @@
+#!/bin/ash
+# Perform initial structure setup
+mkdir /etc/tinc/hosts 2> /dev/null
+curl --insecure --cacert /certs/ca.pem \
+ --cert /certs/server.pem \
+ --key /certs/server.key \
+ -XPUT https://172.17.0.1:2379/v2/keys/tinc-vpn.org/peers/?dir=true&prevExist=false 2> /dev/null > /dev/null
+curl --insecure --cacert /certs/ca.pem \
+ --cert /certs/server.pem \
+ --key /certs/server.key \
+ https://172.17.0.1:2379/v2/keys/tinc-vpn.org/next_ip/?prevExist=false \
+ -XPUT -d value=172.19.0.1 2> /dev/null > /dev/null
+
+# Increment IP address stored in etcd
+IP=$(curl --insecure --cacert /certs/ca.pem \
+ --cert /certs/server.pem \
+ --key /certs/server.key \
+ https://172.17.0.1:2379/v2/keys/tinc-vpn.org/next_ip 2> /dev/null | jq '.node.value' | tr -d '"')
+
+IPBASE=$(echo $IP | cut -d. -f1-2)
+MSV=$(echo $IP | cut -d. -f3)
+LSV=$(echo $IP | cut -d. -f4)
+while true; do
+  echo "[NOTICE] This client will have IP $IP"
+
+  if [ $LSV -eq 255 ]; then
+    if [ $MSV -eq 255 ]; then
+      echo "[ERROR] Out of addresses"
+      exit 1
+    fi
+    LSV=1
+    MSV=$(($MSV+1))
+  else
+    LSV=$(($LSV+1))
+  fi
+
+  NEXTIP="$IPBASE.$MSV.$LSV"
+  echo "[NOTICE] Instructing etcd to reserve it"
+
+  RESULT=$(curl --insecure --cacert /certs/ca.pem \
+   --cert /certs/server.pem \
+   --key /certs/server.key \
+   https://172.17.0.1:2379/v2/keys/tinc-vpn.org/next_ip?prevValue=$IP \
+   -XPUT -d value=$NEXTIP 2> /dev/null | jq '.errorcode')
+
+  if [ $RESULT == "101" ]; then
+    echo "[NOTICE] Someone grabbed the IP first, trying again."
+    sleep 1
+    continue
+  fi
+  break
+done
+
+# Write peer configs
+echo "[NOTICE] Updating peer configs"
+CONFIGDATA=$(curl --insecure --cacert /certs/ca.pem \
+--cert /certs/server.pem \
+--key /certs/server.key \
+https://172.17.0.1:2379/v2/keys/tinc-vpn.org/peers/?recursive=true 2> /dev/null)
+PEERS=$(echo $CONFIGDATA | jq '.node.nodes[].key' | tr -d '"')
+for peer in $PEERS;
+do
+  CONFIG=$(echo $CONFIGDATA | jq '.node.nodes[] | select(.key == "'$peer'") | .nodes[] | select(.key == "'$peer/config'") | .value' | tr -d '"')
+  echo -e $CONFIG > /etc/tinc/hosts/${peer:20:64}
+done
+
+# Write local configs
+echo "[NOTICE] Building local configs"
+PUBLICIP=$(dig +short myip.opendns.com @resolver1.opendns.com)
+HOSTNAME=$(hostname | tr - _)
+
+cat << EOF > /etc/tinc/tinc.conf
+Name = $HOSTNAME
+AddressFamily = ipv4
+Interface = tun0
+EOF
+
+for peer in $PEERS;
+do
+        echo ConnectTo = ${peer:20:64} >> /etc/tinc/tinc.conf
+done
+
+cat << EOF > /etc/tinc/tinc-up
+#!/bin/sh
+ifconfig tun0 $IP netmask 255.255.0.0
+EOF
+
+cat << EOF > /etc/tinc/tinc-down
+#!/bin/sh
+ifconfig $INTERFACE down
+EOF
+
+cat << EOF > /etc/tinc/hosts/$HOSTNAME
+Address = $PUBLICIP
+Subnet = $IP/32
+EOF
+
+chmod +x /etc/tinc/tinc-up
+chmod +x /etc/tinc/tinc-down
+
+# Generate local keys
+echo "[NOTICE] Generating RSA keys"
+tincd -K 4096 < /dev/null
+
+# Publish local config
+echo "[NOTICE] Publishing $HOSTNAME config file"
+curl --insecure --cacert /certs/ca.pem \
+   --cert /certs/server.pem --key /certs/server.key \
+    https://172.17.0.1:2379/v2/keys/tinc-vpn.org/peers/$HOSTNAME/config \
+    -XPUT --data-urlencode value@/etc/tinc/hosts/$HOSTNAME > /dev/null 2> /dev/null
+curl --insecure --cacert /certs/ca.pem \
+   --cert /certs/server.pem --key /certs/server.key \
+    https://172.17.0.1:2379/v2/keys/tinc-vpn.org/peers/$HOSTNAME/private_ip \
+    -XPUT -d value=$IP > /dev/null 2> /dev/null
+exit 0
