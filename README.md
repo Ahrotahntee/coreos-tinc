@@ -28,11 +28,12 @@ It is recommended that you mount the config directory somewhere:
 
 Network Information
 ----
-`Network:   172.19.0.0/16 (Class B)`
-`Broadcast: 172.19.255.255`
-`HostMin:   172.19.0.1`
-`HostMax:   172.19.255.254`
-`Hosts/Net: 65534`
+```Network:   172.19.0.0/16 (Class B)
+Broadcast: 172.19.255.255
+HostMin:   172.19.0.1
+HostMax:   172.19.255.254
+Hosts/Net: 65534
+```
 
 Technical:
 ----------
@@ -42,23 +43,24 @@ You can use these to generate a DNS config if you're interested in setting up so
 
 Sample Fleetctl Unit File
 -------------------------
-`[Unit]`
-`Description=A tinc VPN Docker Container built for CoreOS`
-`After=docker.service`
-`Requires=docker.service tinc-discovery.service`
+```[Unit]
+Description=A tinc VPN Docker Container built for CoreOS
+After=docker.service
+Requires=docker.service tinc-discovery.service
 
-`[Service]`
-`Restart=always`
-`TimeoutStartSec=0`
-`ExecStartPre=-/bin/docker kill tinc`
-`ExecStartPre=-/bin/docker rm tinc`
-`ExecStartPre=/bin/docker pull ahrotahntee/tinc`
-`ExecStartPre=/bin/docker run --rm --volume /etc/ssl/CoreOS:/certs --volume /srv/tinc:/etc/tinc --entrypoint tinc-setup --net=host ahrotahntee/tinc:latest`
-`ExecStart=/bin/docker run --rm --name tinc --volume /etc/ssl/CoreOS:/certs --volume /srv/tinc:/etc/tinc --device=/dev/net/tun --cap-add NET_ADMIN --net=host ahrotahntee/tinc:latest`
+[Service]
+Restart=always
+TimeoutStartSec=0
+ExecStartPre=-/bin/docker kill tinc
+ExecStartPre=-/bin/docker rm tinc
+ExecStartPre=/bin/docker pull ahrotahntee/tinc
+ExecStartPre=/bin/docker run --rm --volume /etc/ssl/CoreOS:/certs --volume /srv/tinc:/etc/tinc --entrypoint tinc-setup --net=host ahrotahntee/tinc:latest
+ExecStart=/bin/docker run --rm --name tinc --volume /etc/ssl/CoreOS:/certs --volume /srv/tinc:/etc/tinc --device=/dev/net/tun --cap-add NET_ADMIN --net=host ahrotahntee/tinc:latest
 
-`[Install]`
-`WantedBy=multi-user.target`
+[Install]
+WantedBy=multi-user.target
 
-`[X-Fleet]`
-`Global=true`
+[X-Fleet]
+Global=true
+```
 
