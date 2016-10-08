@@ -28,7 +28,8 @@ It is recommended that you mount the config directory somewhere:
 
 Network Information
 ----
-```Network:   172.19.0.0/16 (Class B)
+```
+Network:   172.19.0.0/16 (Class B)
 Broadcast: 172.19.255.255
 HostMin:   172.19.0.1
 HostMax:   172.19.255.254
@@ -43,7 +44,8 @@ You can use these to generate a DNS config if you're interested in setting up so
 
 Sample Fleetctl Unit File
 -------------------------
-```[Unit]
+```
+[Unit]
 Description=A tinc VPN Docker Container built for CoreOS
 After=docker.service
 Requires=docker.service tinc-discovery.service
