@@ -31,5 +31,5 @@ EOF
     echo -e $CONFIG > /etc/tinc/hosts/${peer:20:64}
         echo ConnectTo = ${peer:20:64} >> /etc/tinc/tinc.conf
   done
+  killall -1 tincd
 done
-

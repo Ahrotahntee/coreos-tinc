@@ -1,6 +1,7 @@
 A tinc VPN Docker Container built for CoreOS.
 
 This container uses etcdctl to perform 0-conf tinc connections with other members in the CoreOS cluster.
+The system automatically sets up and discovers peers, while it's running it monitors etcd for changes to the peers.
 
 Requirements:
 -----
@@ -27,15 +28,11 @@ It is recommended that you mount the config directory somewhere:
 
 Network Information
 ----
-Network:   172.19.0.0/16 (Class B)
-
-Broadcast: 172.19.255.255
-
-HostMin:   172.19.0.1
-
-HostMax:   172.19.255.254
-
-Hosts/Net: 65534
+`Network:   172.19.0.0/16 (Class B)`
+`Broadcast: 172.19.255.255`
+`HostMin:   172.19.0.1`
+`HostMax:   172.19.255.254`
+`Hosts/Net: 65534`
 
 Technical:
 ----------
@@ -45,36 +42,23 @@ You can use these to generate a DNS config if you're interested in setting up so
 
 Sample Fleetctl Unit File
 -------------------------
-[Unit]
+`[Unit]`
+`Description=A tinc VPN Docker Container built for CoreOS`
+`After=docker.service`
+`Requires=docker.service tinc-discovery.service`
 
-Description=A tinc VPN Docker Container built for CoreOS
+`[Service]`
+`Restart=always`
+`TimeoutStartSec=0`
+`ExecStartPre=-/bin/docker kill tinc`
+`ExecStartPre=-/bin/docker rm tinc`
+`ExecStartPre=/bin/docker pull ahrotahntee/tinc`
+`ExecStartPre=/bin/docker run --rm --volume /etc/ssl/CoreOS:/certs --volume /srv/tinc:/etc/tinc --entrypoint tinc-setup --net=host ahrotahntee/tinc:latest`
+`ExecStart=/bin/docker run --rm --name tinc --volume /etc/ssl/CoreOS:/certs --volume /srv/tinc:/etc/tinc --device=/dev/net/tun --cap-add NET_ADMIN --net=host ahrotahntee/tinc:latest`
 
-After=docker.service
+`[Install]`
+`WantedBy=multi-user.target`
 
-Requires=docker.service
-
-[Service]
-Restart=always
-
-TimeoutStartSec=0
-
-ExecStartPre=-/bin/docker rm tinc
-
-ExecStartPre=/bin/docker pull ahrotahntee/tinc
-
-ExecStart=/bin/docker run --name tinc --volume /etc/ssl/etcd:/certs --volume /srv/tinc:/etc/tinc --device=/dev/net/tun --cap-add NET_ADMIN --net=host ahrotahntee/tinc:latest
-
-ExecStartPost=/bin/sh -c "/bin/curl --insecure --cacert /etc/ssl/etcd/ca.pem --cert /etc/ssl/etcd/server.pem --key /etc/ssl/etcd/server.key https://127.0.0.1:2379/v2/keys/services/tinc/$(hostname) -XPUT -d value=$(ifconfig tun0 | grep 'inet ' | awk -F' ' '{print $2}')"
-
-ExecStop=/bin/docker kill tinc
-
-ExecStopPost=/bin/sh -c '/bin/curl --insecure --cacert /etc/ssl/etcd/ca.pem --cert /etc/ssl/etcd/server.pem --key /etc/ssl/etcd/server.key https://127.0.0.1:2379/v2/keys/services/tinc/$(hostname) -XDELETE'
-
-[Install]
-
-WantedBy=multi-user.target
-
-[X-Fleet]
-
-Global=true
+`[X-Fleet]`
+`Global=true`
 

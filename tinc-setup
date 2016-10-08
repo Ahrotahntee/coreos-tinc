@@ -1,21 +1,22 @@
 #!/bin/ash
+if [ -f /etc/tinc/.setup-complete ]; then
+exit 0
+fi
 # Perform initial structure setup
 mkdir /etc/tinc/hosts 2> /dev/null
 curl --insecure --cacert /certs/ca.pem \
  --cert /certs/server.pem \
  --key /certs/server.key \
- -XPUT https://172.17.0.1:2379/v2/keys/tinc-vpn.org/peers/?dir=true&prevExist=false 2> /dev/null > /dev/null
+ -XPUT https://172.17.0.1:2379/v2/keys/tinc-vpn.org/peers/?dir=true\&prevExist=false > /dev/null 2> /dev/null
 curl --insecure --cacert /certs/ca.pem \
  --cert /certs/server.pem \
  --key /certs/server.key \
- https://172.17.0.1:2379/v2/keys/tinc-vpn.org/next_ip/?prevExist=false \
- -XPUT -d value=172.19.0.1 2> /dev/null > /dev/null
-
+ https://172.17.0.1:2379/v2/keys/tinc-vpn.org/next_ip/?prevExist=false -XPUT -d value=172.19.0.1 2> /dev/null > /dev/null
 # Increment IP address stored in etcd
 IP=$(curl --insecure --cacert /certs/ca.pem \
  --cert /certs/server.pem \
  --key /certs/server.key \
- https://172.17.0.1:2379/v2/keys/tinc-vpn.org/next_ip 2> /dev/null | jq '.node.value' | tr -d '"')
+ https://172.17.0.1:2379/v2/keys/tinc-vpn.org/next_ip | jq '.node.value' | tr -d '"') 2> /dev/null
 
 IPBASE=$(echo $IP | cut -d. -f1-2)
 MSV=$(echo $IP | cut -d. -f3)
@@ -83,11 +84,13 @@ done
 cat << EOF > /etc/tinc/tinc-up
 #!/bin/sh
 ifconfig tun0 $IP netmask 255.255.0.0
+tinc-monitor &
 EOF
 
 cat << EOF > /etc/tinc/tinc-down
 #!/bin/sh
-ifconfig $INTERFACE down
+ifconfig tun0 down
+killall -5 tinc-monitor
 EOF
 
 cat << EOF > /etc/tinc/hosts/$HOSTNAME
@@ -112,4 +115,5 @@ curl --insecure --cacert /certs/ca.pem \
    --cert /certs/server.pem --key /certs/server.key \
     https://172.17.0.1:2379/v2/keys/tinc-vpn.org/peers/$HOSTNAME/private_ip \
     -XPUT -d value=$IP > /dev/null 2> /dev/null
+touch /etc/tinc/.setup-complete
 exit 0
