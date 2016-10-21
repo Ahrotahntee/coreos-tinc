@@ -5,5 +5,5 @@ RUN apk update && apk add tinc jq curl bind-tools && rm -rf /var/cache
 COPY tinc-setup /usr/sbin
 COPY tinc-monitor /usr/sbin
 RUN chmod +x /usr/sbin/tinc-*
-ENTRYPOINT ["tincd"]
+ENTRYPOINT ["/usr/sbin/tincd"]
 CMD ["-D"]
