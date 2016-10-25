@@ -69,7 +69,10 @@ done
 echo "[NOTICE] Building local configs"
 PUBLICIP=$(dig +short myip.opendns.com @resolver1.opendns.com)
 HOSTNAME=$(hostname | tr - _)
-HOSTNAME=${HOSTNAME:0:$(expr index $HOSTNAME .) - 1}
+DOTNO=$(expr index $HOSTNAME . - 1)
+if [ $DOTNO -gt 0 ]; then
+  HOSTNAME=${HOSTNAME:0:$DOTNO}
+fi
 cat << EOF > /etc/tinc/tinc.conf
 Name = $HOSTNAME
 AddressFamily = ipv4
