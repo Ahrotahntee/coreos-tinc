@@ -71,7 +71,7 @@ PUBLICIP=$(dig +short myip.opendns.com @resolver1.opendns.com)
 HOSTNAME=$(hostname | tr - _)
 
 cat << EOF > /etc/tinc/tinc.conf
-Name = $HOSTNAME
+Name = ${HOSTNAME:0:$(expr index $HOSTNAME .) - 1}
 AddressFamily = ipv4
 Interface = tun0
 EOF
