@@ -1,3 +1,5 @@
+#This project has been superseded by [automatic-tinc](https://github.com/Ahrotahntee/automatic-tinc).
+
 A tinc VPN Docker Container built for CoreOS.
 
 This container uses etcdctl to perform 0-conf tinc connections with other members in the CoreOS cluster.
