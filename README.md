@@ -1,4 +1,4 @@
-#This project has been superseded by [automatic-tinc](https://github.com/Ahrotahntee/automatic-tinc).
+# This project has been superseded by [automatic-tinc](https://github.com/Ahrotahntee/automatic-tinc).
 
 A tinc VPN Docker Container built for CoreOS.
 
